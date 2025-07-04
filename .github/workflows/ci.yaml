@@ -35,5 +35,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: gcr.io/${{ secrets.GCP_PROJECT_ID }}/petclinic:latest
