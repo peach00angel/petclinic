@@ -41,16 +41,16 @@ jobs:
       
       - name: Update Helm appVersion and tag with numeric version
         run: |
-          CURRENT_TAG=$(grep "tag:" was/values.yaml | awk '{print $2}')
+          CURRENT_TAG=$(grep "tag:" was_cd/values.yaml | awk '{print $2}')
           NEXT_TAG=$((CURRENT_TAG + 1))
 
-          sed -i "s/^  tag: .*/  tag: $NEXT_TAG/" was/values.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"$NEXT_TAG\"/" was/Chart.yaml
+          sed -i "s/^  tag: .*/  tag: $NEXT_TAG/" was_cd/values.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"$NEXT_TAG\"/" was_cd/Chart.yaml
 
       - name: Commit Helm update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add was/Chart.yaml was/values.yaml
+          git add was_cd/Chart.yaml was_cd/values.yaml
           git commit -m "Update WAS Helm tag to $SHORT_SHA"
           git push
