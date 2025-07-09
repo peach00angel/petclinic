@@ -38,11 +38,14 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: gcr.io/${{ secrets.GCP_PROJECT_ID }}/petclinic:${{ github.sha }}
-      - name: Update Helm appVersion and tag
+      
+      - name: Update Helm appVersion and tag with numeric version
         run: |
-          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          sed -i "s/^  tag: .*/  tag: $SHORT_SHA/" was/values.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"$SHORT_SHA\"/" was/Chart.yaml
+          CURRENT_TAG=$(grep "tag:" was/values.yaml | awk '{print $2}')
+          NEXT_TAG=$((CURRENT_TAG + 1))
+
+          sed -i "s/^  tag: .*/  tag: $NEXT_TAG/" was/values.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"$NEXT_TAG\"/" was/Chart.yaml
 
       - name: Commit Helm update
         run: |
