@@ -1,9 +1,9 @@
-name: Build and Push Docker Image to GCR
+name: Build and Push WAS Docker Image to GCR
 
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
@@ -13,23 +13,17 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Build with Maven
-        run: ./mvnw clean package -DskipTests -PMySQL
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCR_CREDENTIALS }}
 
-      - name: Set up Docker credentials for GCR
-        run: |
-          gcloud auth configure-docker
+      - name: Configure Docker to use gcloud credentials
+        run: gcloud auth configure-docker gcr.io
+
+      - name: Set dynamic image tag (timestamp)
+        id: image_tag
+        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Build and push Docker image to GCR
         uses: docker/build-push-action@v5
@@ -37,20 +31,17 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: gcr.io/${{ secrets.GCP_PROJECT_ID }}/petclinic:${{ github.sha }}
-      
-      - name: Update Helm appVersion and tag with numeric version
+          tags: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}
+
+      - name: Update deployment.yaml with new image tag
         run: |
-          CURRENT_TAG=$(grep "tag:" was_cd/values.yaml | awk '{print $2}')
-          NEXT_TAG=$((CURRENT_TAG + 1))
+          sed -i "s|image: gcr.io/kdt1-finalproject/petclinic:.*|image: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}|" k8s/was/deployment.yaml
 
-          sed -i "s/^  tag: .*/  tag: $NEXT_TAG/" was_cd/values.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"$NEXT_TAG\"/" was_cd/Chart.yaml
-
-      - name: Commit Helm update
+      - name: Commit and push updated deployment.yaml
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add was_cd/Chart.yaml was_cd/values.yaml
-          git commit -m "Update WAS Helm tag to $SHORT_SHA"
+          git add k8s/was/deployment.yaml
+          git commit -m "Update WAS deployment image to ${{ env.TAG }}"
           git push
+
