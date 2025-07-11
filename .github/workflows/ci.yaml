@@ -39,8 +39,8 @@ jobs:
       - name: Build and push WAS Docker image to GCR
         uses: docker/build-push-action@v5
         with:
-          context: ./was               # WAS 소스코드 디렉토리
-          file: ./was/Dockerfile
+          context: ./petclinic               # WAS 소스코드 디렉토리
+          file: ./petclinic/Dockerfile
           push: true
           tags: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}
 
