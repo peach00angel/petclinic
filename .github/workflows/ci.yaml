@@ -3,7 +3,7 @@ name: Build and Push WAS Docker Image to GCR
 # 1️⃣ 트리거: master 브랜치에 push 될 때
 on:
   push:
-    branches: [ master ]   # 필요하면 main 등으로 변경
+    branches: [ main ]   # 필요하면 main 등으로 변경
 
 jobs:
   build:
