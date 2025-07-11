@@ -1,52 +1,67 @@
 name: Build and Push WAS Docker Image to GCR
 
+# 1️⃣ 트리거: master 브랜치에 push 될 때
 on:
   push:
-    branches:
-      - master  # 필요시 브랜치명 변경
+    branches: [ master ]   # 필요하면 main 등으로 변경
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
+      # 2️⃣ 코드 체크아웃
+      - uses: actions/checkout@v3
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      # 3️⃣ GCP 인증 (Service‑Account JSON을 secret에 저장)
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2      # 공식 액션 :contentReference[oaicite:0]{index=0}
         with:
           credentials_json: ${{ secrets.GCR_CREDENTIALS }}
 
-      - name: Configure Docker to use gcloud credentials
-        run: gcloud auth configure-docker gcr.io
-
-      - name: Set dynamic image tag (timestamp)
-        id: image_tag
-        run: echo "TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
-
-      - name: Build and push WAS Docker image to GCR
-        uses: docker/build-push-action@v5
+      # 4️⃣ gcloud CLI 설치
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2           :contentReference[oaicite:1]{index=1}
         with:
-          context: ./was     # WAS 소스코드 위치에 맞게 수정
+          install_components: 'gke-gcloud-auth-plugin'
+
+      # 5️⃣ Docker 를 GCR 자격증명과 연동
+      - name: Configure Docker for gcr.io
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      # 6️⃣ 태그를 “YYYYMMDDhhmmss” 형식으로 생성
+      - id: meta
+        name: Set dynamic image tag
+        run: echo "TAG=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+      # 7️⃣ WAS 이미지 빌드 & 푸시
+      - name: Build and Push image
+        uses: docker/build-push-action@v5                       :contentReference[oaicite:2]{index=2}
+        with:
+          context: ./was            # WAS 소스 위치
           file: ./was/Dockerfile
           push: true
-          tags: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}
+          tags: |
+            gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}
 
-      - name: Clone petclinic_cd repository (CD repo)
-        run: |
-          git clone https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/peach00angel/petclinic_cd.git
+      # 8️⃣ CD 레포(petclinic_cd) 클론
+      - name: Clone CD repo
+        run: git clone https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/peach00angel/petclinic_cd.git
 
-      - name: Update was deployment image tag
+      # 9️⃣ manifest(Deployment) 안의 이미지 태그 교체
+      - name: Update WAS deployment image tag
         run: |
-          sed -i "s|image: gcr.io/kdt1-finalproject/petclinic:.*|image: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}|" petclinic_cd/k8s/was/was-deployment.yaml
+          sed -i "s|image: gcr.io/kdt1-finalproject/petclinic:.*|image: gcr.io/kdt1-finalproject/petclinic:${{ env.TAG }}|" \
+            petclinic_cd/k8s/was/was-deployment.yaml
 
-      - name: Commit and push updated was deployment.yaml
+      # 🔟 변경 사항 커밋 & 푸시
+      - name: Commit and push manifest change
+        working-directory: petclinic_cd
         run: |
-          cd petclinic_cd
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add k8s/was/was-deployment.yaml
-          git commit -m "Update WAS deployment image to ${{ env.TAG }}"
+          git commit -m "ci: update WAS image to ${{ env.TAG }}"
           git push
 
